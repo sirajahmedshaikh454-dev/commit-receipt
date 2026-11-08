@@ -57,3 +57,13 @@ test('price change and hex-speak coupon', async () => {
   assert.match(text, /COUPON/);
   assert.match(text, /VS PREVIOUS 7 DAYS \(4\) +-75%/);
 });
+
+test('every fortune fits the 40-column paper; period split', async () => {
+  const { splitPeriod } = await import('./lib.js');
+  const base = { items: [], add: 0, del: 0, nightOwl: 0, activeDays: 0 };
+  for (const s of [{ ...base, commits: 0 }, { ...base, commits: 1, nightOwl: 3 }, { ...base, commits: 1, del: 9 },
+    { ...base, commits: 1, activeDays: 5 }, { ...base, commits: 1, items: [1, 2, 3] }, { ...base, commits: 1 }]) assert.ok(fortune(s).length <= 40, fortune(s));
+  const { current, prev } = splitPeriod([{ name: 'r', commits: [{ time: 5 }, { time: 10 }, { time: 15 }] }], 10);
+  assert.equal(prev, 1);
+  assert.deepEqual(current[0].commits.map(c => c.time), [10, 15]);
+});

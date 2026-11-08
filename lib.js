@@ -19,7 +19,7 @@ export function parseLog(text) {
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const STOP = new Set(['the', 'a', 'an', 'to', 'and', 'of', 'for', 'in', 'on', 'with', 'from', 'by', 'at', 'is', 'it', 'co', 'authored', 'claude', 'noreply', 'anthropic', 'com']);
+const STOP = new Set(['the', 'a', 'an', 'to', 'and', 'of', 'for', 'in', 'on', 'with', 'from', 'by', 'at', 'is', 'it']);
 const top = counts => Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
 
 // repos: [{ name, commits }] -> one summary object
@@ -73,16 +73,23 @@ export function change(now, prev) {
 export function fortune(s) {
   if (!s.commits) return 'Quiet week. The best code is no code.';
   if (s.nightOwl >= 3) return 'Sleep is also a feature. Ship it.';
-  if (s.del > s.add) return 'You left the codebase lighter than you found it.';
-  if (s.activeDays >= 5) return 'Consistency compounds. Same time next week?';
+  if (s.del > s.add) return 'You left the code lighter. Nice.';
+  if (s.activeDays >= 5) return 'Consistency compounds. Same time?';
   if (s.items.length >= 3) return 'Many repos, one you. Pick a favourite.';
   return 'Small commits, big changes. Keep going.';
 }
 
 // Each hex digit -> 4-module bar pattern; looks like a barcode, encodes your hashes.
+export const bits = (seed, chars) => [...seed.slice(0, chars)].map(ch => parseInt(ch, 16).toString(2).padStart(4, '0')).join('');
 export function barcode(seed, width = 40) {
-  const bars = [...seed.slice(0, width / 4 * 2)].map(ch => parseInt(ch, 16).toString(2).padStart(4, '0')).join('');
-  return bars.slice(0, width).replace(/1/g, '█').replace(/0/g, ' ');
+  return bits(seed, width / 2).slice(0, width).replace(/1/g, '█').replace(/0/g, ' ');
+}
+
+// Commits are fetched for 2x the period; split them into this period and a count of the one before.
+export function splitPeriod(repos, cutoff) {
+  let prev = 0;
+  const current = repos.map(r => { prev += r.commits.filter(c => c.time < cutoff).length; return { ...r, commits: r.commits.filter(c => c.time >= cutoff) }; });
+  return { current, prev };
 }
 
 const n = v => v.toLocaleString('en-US');
@@ -119,8 +126,8 @@ const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '
 export function renderHtml(s, now = new Date()) {
   const text = renderText(s, now).split('\n');
   const bar = text.findIndex(l => /█/.test(l));
-  const bits = [...s.seed.slice(0, 20)].map(ch => parseInt(ch, 16).toString(2).padStart(4, '0')).join('');
-  const svg = `<svg viewBox="0 0 ${bits.length} 10" preserveAspectRatio="none" aria-hidden="true">${[...bits].map((b, i) => b === '1' ? `<rect x="${i}" width="1" height="10"/>` : '').join('')}</svg>`;
+  const b = bits(s.seed, 20);
+  const svg = `<svg viewBox="0 0 ${b.length} 10" preserveAspectRatio="none" aria-hidden="true">${[...b].map((b, i) => b === '1' ? `<rect x="${i}" width="1" height="10"/>` : '').join('')}</svg>`;
   const body = text.map((l, i) => i === bar ? svg : esc(l)).join('\n');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { FORMAT, parseLog, summarize, renderText, renderHtml } from './lib.js';
+import { FORMAT, parseLog, summarize, renderText, renderHtml, splitPeriod } from './lib.js';
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : fallback; };
@@ -33,11 +33,8 @@ const repos = findRepos(root).map(dir => {
   } catch { return { name: basename(dir), commits: [] }; } // empty repo or not readable
 });
 
-// We fetched 2x the period: split into this period and the one before it, for the "vs previous" line.
-const cutoff = Date.now() - days * 864e5;
-let prev = 0;
-for (const r of repos) { prev += r.commits.filter(c => c.time < cutoff).length; r.commits = r.commits.filter(c => c.time >= cutoff); }
-const summary = summarize(repos, days, prev);
+const { current, prev } = splitPeriod(repos, Date.now() - days * 864e5);
+const summary = summarize(current, days, prev);
 console.log('\n' + renderText(summary) + '\n');
 if (html) { writeFileSync('receipt.html', renderHtml(summary)); console.log(`Printable receipt: ${resolve('receipt.html')}`); }
 if (open) {
