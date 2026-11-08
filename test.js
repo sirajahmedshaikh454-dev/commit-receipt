@@ -43,3 +43,17 @@ test('html escapes repo names and swaps the text barcode for an svg', async () =
   assert.match(html, /<svg[^>]*>.*<rect/);
   assert.ok(!html.includes('█'));
 });
+
+test('price change and hex-speak coupon', async () => {
+  const { change, coupon } = await import('./lib.js');
+  assert.equal(change(12, 10), '+20%');
+  assert.equal(change(5, 10), '-50%');
+  assert.equal(change(3, 0), 'NEW');
+  assert.equal(change(3, null), null);
+  assert.deepEqual(coupon([{ hash: '1cafe99aaaa' }]), { word: 'cafe', hash: '1cafe99' });
+  assert.equal(coupon([{ hash: '1234567cafe' }]), null); // only the visible short hash counts
+  const s = summarize([{ name: 'r', commits: [{ ...parseLog(LOG)[0], hash: 'c0ffee1aaaa' }] }], 7, 4);
+  const text = renderText(s);
+  assert.match(text, /COUPON/);
+  assert.match(text, /VS PREVIOUS 7 DAYS \(4\) +-75%/);
+});

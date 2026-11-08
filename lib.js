@@ -23,7 +23,7 @@ const STOP = new Set(['the', 'a', 'an', 'to', 'and', 'of', 'for', 'in', 'on', 'w
 const top = counts => Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
 
 // repos: [{ name, commits }] -> one summary object
-export function summarize(repos, days) {
+export function summarize(repos, days, prevCommits = null) {
   const all = repos.flatMap(r => r.commits);
   const items = repos.filter(r => r.commits.length).map(r => ({
     name: r.name, qty: r.commits.length,
@@ -50,7 +50,24 @@ export function summarize(repos, days) {
     longest: longest?.subject ?? null,
     word: word ? { word: word[0], count: word[1] } : null,
     seed: all.map(c => c.hash.slice(0, 8)).join('') || '0'.repeat(8),
+    prev: prevCommits,
+    coupon: coupon(all),
   };
+}
+
+// Hex-speak hidden in your short hashes earns a coupon.
+const WORDS = ['c0ffee', 'decade', 'facade', 'beef', 'cafe', 'dead', 'face', 'bad', 'ace'];
+export function coupon(commits) {
+  for (const w of WORDS) { const c = commits.find(c => c.hash.slice(0, 7).includes(w)); if (c) return { word: w, hash: c.hash.slice(0, 7) }; }
+  return null;
+}
+
+// Percent change vs the previous period, as a price tag: "+12%", "-40%", "NEW".
+export function change(now, prev) {
+  if (prev === null || prev === undefined) return null;
+  if (!prev) return now ? 'NEW' : '0%';
+  const p = Math.round((now - prev) / prev * 100);
+  return (p > 0 ? '+' : '') + p + '%';
 }
 
 export function fortune(s) {
@@ -83,11 +100,15 @@ export function renderText(s, now = new Date(), title = 'DESKTOP CODE MARKET') {
     row('SUBTOTAL (lines added)', `+${n(s.add)}`),
     row('REFACTOR DISCOUNT', `-${n(s.del)}`));
   if (s.nightOwl) L.push(row(`NIGHT-OWL SURCHARGE x${s.nightOwl}`, 'sleep'));
-  L.push(rule, row('TOTAL NET LINES', n(s.net)), row(`${s.commits} COMMITS · ${s.activeDays} ACTIVE DAYS`, ''), rule);
+  L.push(rule, row('TOTAL NET LINES', n(s.net)), row(`${s.commits} COMMITS · ${s.activeDays} ACTIVE DAYS`, ''));
+  const ch = change(s.commits, s.prev);
+  if (ch) L.push(row(`VS PREVIOUS ${s.days} DAYS (${s.prev})`, ch));
+  L.push(rule);
   if (s.busiestHour) L.push(row('BUSIEST HOUR', `${String(s.busiestHour.hour).padStart(2, '0')}:00 (${s.busiestHour.count})`));
   if (s.busiestDay) L.push(row('BUSIEST DAY', s.busiestDay));
   if (s.word) L.push(row('FAVOURITE WORD', `"${s.word.word}" x${s.word.count}`));
   if (s.longest) L.push(row('LONGEST MESSAGE', `${s.longest.length} chars`));
+  if (s.coupon) L.push(rule, center('*** COUPON ***'), center(`commit ${s.coupon.hash} spells "${s.coupon.word}"`), center('redeem for one free coffee'));
   L.push(rule, barcode(s.seed, W), center(s.seed.slice(0, 16)), '', center('THANK YOU FOR SHIPPING'), center(fortune(s)));
   return L.join('\n');
 }
