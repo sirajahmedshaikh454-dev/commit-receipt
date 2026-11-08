@@ -33,3 +33,13 @@ test('empty week still prints a receipt', () => {
   assert.equal(barcode('').length, 0);
   assert.equal(barcode('ffff', 8), '████████');
 });
+
+test('html escapes repo names and swaps the text barcode for an svg', async () => {
+  const { renderHtml } = await import('./lib.js');
+  const s = summarize([{ name: '<script>x</script>', commits: parseLog(LOG) }], 7);
+  const html = renderHtml(s);
+  assert.ok(!html.includes('<script>x'));
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.match(html, /<svg[^>]*>.*<rect/);
+  assert.ok(!html.includes('█'));
+});

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Usage: node cli.js [folder] [--days 7] [--author name]
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { FORMAT, parseLog, summarize, renderText } from './lib.js';
+import { FORMAT, parseLog, summarize, renderText, renderHtml } from './lib.js';
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : fallback; };
 const days = Math.max(1, Math.min(3650, parseInt(opt('--days', '7'), 10) || 7));
 const author = opt('--author', null);
+const html = args.includes('--html') ? (args.splice(args.indexOf('--html'), 1), true) : false;
 const desktop = join(homedir(), 'Desktop');
 const root = resolve(args[0] ?? (existsSync(desktop) ? desktop : '.'));
 
@@ -31,4 +32,6 @@ const repos = findRepos(root).map(dir => {
   } catch { return { name: basename(dir), commits: [] }; } // empty repo or not readable
 });
 
-console.log('\n' + renderText(summarize(repos, days)) + '\n');
+const summary = summarize(repos, days);
+console.log('\n' + renderText(summary) + '\n');
+if (html) { writeFileSync('receipt.html', renderHtml(summary)); console.log(`Printable receipt: ${resolve('receipt.html')}`); }

@@ -35,7 +35,8 @@ export function summarize(repos, days) {
     hours[d.getHours()] = (hours[d.getHours()] ?? 0) + 1;
     weekdays[d.getDay()] = (weekdays[d.getDay()] ?? 0) + 1;
     dates.add(d.toDateString());
-    for (const w of c.subject.toLowerCase().match(/[a-z][a-z'-]{1,}/g) ?? []) if (!STOP.has(w)) words[w] = (words[w] ?? 0) + 1;
+    // drop file names / paths ("App.tsx", "src/x") so they don't win "favourite word"
+    for (const w of c.subject.toLowerCase().replace(/\S*[./\\]\S*/g, ' ').match(/[a-z][a-z'-]{1,}/g) ?? []) if (!STOP.has(w)) words[w] = (words[w] ?? 0) + 1;
   }
   const add = items.reduce((s, i) => s + i.add, 0), del = items.reduce((s, i) => s + i.del, 0);
   const longest = all.reduce((m, c) => (c.subject.length > (m?.subject.length ?? -1) ? c : m), null);
@@ -89,4 +90,44 @@ export function renderText(s, now = new Date(), title = 'DESKTOP CODE MARKET') {
   if (s.longest) L.push(row('LONGEST MESSAGE', `${s.longest.length} chars`));
   L.push(rule, barcode(s.seed, W), center(s.seed.slice(0, 16)), '', center('THANK YOU FOR SHIPPING'), center(fortune(s)));
   return L.join('\n');
+}
+
+const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Printable thermal-paper page: the same text receipt, on paper, with a real SVG barcode and a stamp.
+export function renderHtml(s, now = new Date()) {
+  const text = renderText(s, now).split('\n');
+  const bar = text.findIndex(l => /█/.test(l));
+  const bits = [...s.seed.slice(0, 20)].map(ch => parseInt(ch, 16).toString(2).padStart(4, '0')).join('');
+  const svg = `<svg viewBox="0 0 ${bits.length} 10" preserveAspectRatio="none" aria-hidden="true">${[...bits].map((b, i) => b === '1' ? `<rect x="${i}" width="1" height="10"/>` : '').join('')}</svg>`;
+  const body = text.map((l, i) => i === bar ? svg : esc(l)).join('\n');
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commit Receipt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root { --desk: #1a1916; --paper: #f4f1ea; --ink: #1d1b18; --stamp: #c8361c; }
+* { box-sizing: border-box; margin: 0; }
+body { min-height: 100vh; background: var(--desk); display: grid; place-items: center; padding: 40px 16px; font: 12px/1.35 'JetBrains Mono', ui-monospace, Consolas, monospace; color: var(--ink); }
+.paper { position: relative; width: min(100%, 46ch); padding: 28px 18px 34px; background: var(--paper);
+  --tear: conic-gradient(from -45deg at bottom, #0000, #000 1deg 90deg, #0000 91deg) 50% / 12px 100%;
+  -webkit-mask: var(--tear); mask: var(--tear);
+  filter: drop-shadow(0 18px 30px rgba(0,0,0,.45)); animation: print 2.4s steps(40) both; transform-origin: top; }
+pre { font: inherit; white-space: pre; overflow-x: auto; }
+pre svg { display: block; width: 100%; height: 42px; fill: var(--ink); margin: 6px 0 2px; }
+.stamp { position: absolute; right: 14px; top: 46%; padding: 4px 10px; border: 3px double var(--stamp); color: var(--stamp);
+  font-weight: 500; font-size: 22px; letter-spacing: .2em; transform: rotate(-14deg); opacity: .78; mix-blend-mode: multiply; }
+.hint { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; color: #8a857a; }
+@keyframes print { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .paper { animation: none; } }
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+  body { background: none; padding: 0; display: block; }
+  .paper { width: 80mm; filter: none; animation: none; -webkit-mask: none; mask: none; }
+  .hint { display: none; }
+}
+</style></head>
+<body><main class="paper"><pre>${body}</pre>${s.net > 0 ? '<div class="stamp">SHIPPED</div>' : ''}</main>
+<p class="hint">Ctrl+P prints it at real receipt size (80 mm)</p></body></html>`;
 }
