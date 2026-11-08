@@ -110,7 +110,7 @@ export function renderHtml(s, now = new Date()) {
 :root { --desk: #1a1916; --paper: #f4f1ea; --ink: #1d1b18; --stamp: #c8361c; }
 * { box-sizing: border-box; margin: 0; }
 body { min-height: 100vh; background: var(--desk); display: grid; place-items: center; padding: 40px 16px; font: 12px/1.35 'JetBrains Mono', ui-monospace, Consolas, monospace; color: var(--ink); }
-.paper { position: relative; width: min(100%, 46ch); padding: 28px 18px 34px; background: var(--paper);
+.paper { position: relative; width: 44ch; max-width: 100%; padding: 28px 2ch 34px; font-size: min(12px, calc((100vw - 32px) / 26.4)); background: var(--paper);
   --tear: conic-gradient(from -45deg at bottom, #0000, #000 1deg 90deg, #0000 91deg) 50% / 12px 100%;
   -webkit-mask: var(--tear); mask: var(--tear);
   filter: drop-shadow(0 18px 30px rgba(0,0,0,.45)); animation: print 2.4s steps(40) both; transform-origin: top; }
